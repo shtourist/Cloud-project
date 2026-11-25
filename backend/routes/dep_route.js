@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 
-router.get('/deps', async (req,res) => {
+router.get('/', async (req,res) => {
     try {
         const result = await pool.query('SELECT dep_name,dep_desc from department');
         res.status(200).json(result.rows);

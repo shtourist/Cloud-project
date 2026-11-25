@@ -57,8 +57,20 @@ A classic, simple, and formal academic frontend for **Université M'Hamed Bougar
 
 ### 🚀 Running the Project
 
+Set the frontend API URL in `.env.local` at the project root:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+Start the backend and frontend in separate terminals:
+
+```bash
+npm run start:backend
+```
+
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the portal.
+Open [http://localhost:3000](http://localhost:3000) to view the portal. The backend requires its configured PostgreSQL database to be running.

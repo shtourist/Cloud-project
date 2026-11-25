@@ -5,15 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Lock, Mail, ArrowRight, Shield, AlertCircle } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@univ-boumerdes.dz");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -24,17 +25,48 @@ export default function AdminLoginPage() {
 
     setIsLoading(true);
 
-    // Mock client-side transition to the administration console
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: email.trim(), pass: password }),
+      });
+      const payload: unknown = await response.json();
+      const message =
+        typeof payload === "object" &&
+        payload !== null &&
+        "message" in payload &&
+        typeof payload.message === "string"
+          ? payload.message
+          : "Could not sign in.";
+
+      if (!response.ok) {
+        throw new Error(message);
+      }
+
+      const isAdmin =
+        typeof payload === "object" &&
+        payload !== null &&
+        "admin" in payload &&
+        payload.admin === true;
+      if (!isAdmin) {
+        setError("This account does not have administrator access.");
+        return;
+      }
+
       router.push("/admin/announcements");
-    }, 500);
+    } catch (loginError) {
+      setError(
+        loginError instanceof Error ? loginError.message : "Could not sign in.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] px-4 py-12">
       <div className="w-full max-w-md space-y-6">
-        {/* Classical Header */}
         <div className="text-center space-y-2">
           <div className="relative h-20 w-20 mx-auto bg-white border border-slate-300 p-1.5 shadow-2xs">
             <Image
@@ -56,7 +88,6 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
-        {/* Login Box */}
         <div className="bg-white border border-slate-300 shadow-xs">
           <div className="bg-[#163964] text-white px-5 py-3 border-b border-[#0f2847] flex items-center justify-between">
             <h2 className="text-sm font-bold font-serif flex items-center gap-2">
@@ -113,17 +144,6 @@ export default function AdminLoginPage() {
               </div>
             </div>
 
-            {/* Simple Demonstration Box */}
-            <div className="p-3 bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
-              <div className="font-semibold text-slate-800 flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5 text-[#163964]" />
-                <span>Demo Credentials Active</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-slate-500">
-                Pre-filled with <strong>admin@univ-boumerdes.dz</strong>. Click below to enter the announcement management console.
-              </p>
-            </div>
-
             <div className="pt-2 space-y-3">
               <button
                 type="submit"
@@ -140,6 +160,14 @@ export default function AdminLoginPage() {
                 )}
               </button>
 
+              <div className="text-center">
+                <Link
+                  href="/admin/signup"
+                  className="text-xs text-[#163964] hover:underline"
+                >
+                  Create an account
+                </Link>
+              </div>
               <div className="text-center">
                 <Link
                   href="/"

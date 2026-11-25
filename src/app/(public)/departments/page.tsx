@@ -1,76 +1,121 @@
-import React from "react";
-import { initialDepartments } from "@/data/mock-data";
-import { Building, Mail, MapPin, User, ChevronRight } from "lucide-react";
+"use client";
+
+import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/lib/api";
+
+type Department = {
+  dep_name: string;
+  dep_desc: string;
+};
+
+function isDepartmentList(value: unknown): value is Department[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item: unknown) =>
+        typeof item === "object" &&
+        item !== null &&
+        "dep_name" in item &&
+        typeof item.dep_name === "string" &&
+        "dep_desc" in item &&
+        typeof item.dep_desc === "string",
+    )
+  );
+}
 
 export default function DepartmentsPage() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadDepartments() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/deps`);
+        if (!response.ok) {
+          throw new Error(`Could not load departments (${response.status}).`);
+        }
+
+        const data: unknown = await response.json();
+        if (!isDepartmentList(data)) {
+          throw new Error("The server returned invalid department data.");
+        }
+
+        if (isActive) {
+          setDepartments(data);
+        }
+      } catch (loadError) {
+        if (isActive) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load departments.",
+          );
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadDepartments();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header Banner */}
       <div className="bg-white border border-slate-300 p-6 shadow-2xs space-y-2">
         <div className="text-xs font-serif text-slate-500 uppercase tracking-wider">
-          Université M&apos;Hamed Bougara de Boumerdès • Faculté & Instituts
+          Université M&apos;Hamed Bougara de Boumerdès • Facultés & Instituts
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-[#163964] font-serif">
           Faculties and Academic Departments
         </h1>
         <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-          The University of Boumerdes is composed of 6 principal faculties and specialized institutes providing undergraduate, graduate (LMD system), and engineering degrees.
+          Browse the faculties and academic departments of the University of
+          Boumerdes.
         </p>
       </div>
 
-      {/* Departments Grid (Simple, Classic Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {initialDepartments.map((dept) => (
-          <div
-            key={dept.id}
-            className="bg-white border border-slate-300 shadow-2xs flex flex-col justify-between"
-          >
-            {/* Header of the card */}
-            <div className="p-5 border-b border-slate-200">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <span className="font-mono text-xs font-bold text-[#163964] bg-slate-100 border border-slate-300 px-2 py-0.5">
-                  {dept.code}
-                </span>
+      {isLoading ? (
+        <p role="status" className="bg-white border border-slate-300 p-6 text-sm text-slate-600">
+          Loading departments...
+        </p>
+      ) : error ? (
+        <p role="alert" className="bg-red-50 border border-red-300 p-6 text-sm text-red-800">
+          {error} Check that the backend is running and try again.
+        </p>
+      ) : departments.length === 0 ? (
+        <p className="bg-white border border-slate-300 p-6 text-sm text-slate-600">
+          No departments have been added yet.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {departments.map((department) => (
+            <article
+              key={department.dep_name}
+              className="bg-white border border-slate-300 shadow-2xs"
+            >
+              <div className="p-5 border-b border-slate-200">
                 <span className="text-[11px] text-slate-500 font-serif">
                   UMBB Boumerdes
                 </span>
+                <h2 className="mt-2 text-lg font-bold text-slate-900 font-serif leading-snug">
+                  {department.dep_name}
+                </h2>
               </div>
-              <h2 className="text-lg font-bold text-slate-900 font-serif leading-snug">
-                {dept.name}
-              </h2>
-            </div>
-
-            {/* Content: Description */}
-            <div className="p-5 flex-1 space-y-4">
-              <p className="text-sm text-slate-700 leading-relaxed">
-                {dept.description}
+              <p className="p-5 text-sm text-slate-700 leading-relaxed">
+                {department.dep_desc}
               </p>
-
-              {/* Classic Academic Metadata */}
-              <div className="pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-600">
-                <div className="flex items-center gap-2">
-                  <User className="h-3.5 w-3.5 text-[#163964] shrink-0" />
-                  <span>Authority: <strong>{dept.headOfDepartment}</strong></span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 text-[#163964] shrink-0" />
-                  <span>Campus: {dept.location}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 text-[#163964] shrink-0" />
-                  <span>Contact: <a href={`mailto:${dept.contactEmail}`} className="text-[#163964] hover:underline">{dept.contactEmail}</a></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer of the card */}
-            <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-              <span>Program: Licence, Master & Doctorat</span>
-              <span className="font-semibold text-[#163964]">Accredited Division</span>
-            </div>
-          </div>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

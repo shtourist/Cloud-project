@@ -1,22 +1,125 @@
-import React from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { initialAnnouncements, initialDepartments } from "@/data/mock-data";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Calendar,
-  Building,
-  Newspaper,
-  ArrowRight,
-  MapPin,
-  ChevronRight,
-  Award,
-  BookOpen,
-} from "lucide-react";
+import { Building, Newspaper, ChevronRight } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
+
+type Department = {
+  dep_name: string;
+  dep_desc: string;
+};
+
+type Announcement = {
+  ann_name: string;
+  ann_desc: string;
+};
+
+function isDepartmentList(value: unknown): value is Department[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item: unknown) =>
+        typeof item === "object" &&
+        item !== null &&
+        "dep_name" in item &&
+        typeof item.dep_name === "string" &&
+        "dep_desc" in item &&
+        typeof item.dep_desc === "string",
+    )
+  );
+}
+
+function isAnnouncementList(value: unknown): value is Announcement[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item: unknown) =>
+        typeof item === "object" &&
+        item !== null &&
+        "ann_name" in item &&
+        typeof item.ann_name === "string" &&
+        "ann_desc" in item &&
+        typeof item.ann_desc === "string",
+    )
+  );
+}
 
 export default function HomePage() {
-  const recentAnnouncements = initialAnnouncements.slice(0, 4);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState<string | null>(null);
+  const [announcementsError, setAnnouncementsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadDepartments() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/deps`);
+        if (!response.ok) {
+          throw new Error(`Could not load departments (${response.status}).`);
+        }
+
+        const data: unknown = await response.json();
+        if (!isDepartmentList(data)) {
+          throw new Error("The server returned invalid department data.");
+        }
+        if (isActive) {
+          setDepartments(data);
+        }
+      } catch (error) {
+        if (isActive) {
+          setDepartmentsError(
+            error instanceof Error ? error.message : "Could not load departments.",
+          );
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingDepartments(false);
+        }
+      }
+    }
+
+    async function loadAnnouncements() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/news`);
+        if (!response.ok) {
+          throw new Error(`Could not load announcements (${response.status}).`);
+        }
+
+        const data: unknown = await response.json();
+        if (!isAnnouncementList(data)) {
+          throw new Error("The server returned invalid announcement data.");
+        }
+        if (isActive) {
+          setAnnouncements(data);
+        }
+      } catch (error) {
+        if (isActive) {
+          setAnnouncementsError(
+            error instanceof Error ? error.message : "Could not load announcements.",
+          );
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingAnnouncements(false);
+        }
+      }
+    }
+
+    void loadDepartments();
+    void loadAnnouncements();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const recentAnnouncements = announcements.slice(0, 4);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -74,7 +177,9 @@ export default function HomePage() {
             <div className="text-xs text-slate-600">Established by Decree</div>
           </div>
           <div className="pt-2 md:pt-0">
-            <div className="text-xl sm:text-2xl font-bold text-[#163964] font-serif">6</div>
+            <div className="text-xl sm:text-2xl font-bold text-[#163964] font-serif">
+              {isLoadingDepartments ? "..." : departments.length}
+            </div>
             <div className="text-xs text-slate-600">Faculties & Institutes</div>
           </div>
           <div className="pt-2 md:pt-0">
@@ -88,7 +193,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Main Grid: Left Column (Recent Announcements) + Right Column (Faculties Quick Links) */}
+      {/* Main Grid: Announcements and department quick links */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column (2 cols): Classic Official Notice Board */}
         <div className="lg:col-span-2 space-y-4">
@@ -96,7 +201,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2">
               <Newspaper className="h-5 w-5 text-[#163964]" />
               <h2 className="text-lg sm:text-xl font-bold text-slate-900 font-serif">
-                Recent Announcements & Circulars
+                Announcements & Circulars
               </h2>
             </div>
             <Link
@@ -109,40 +214,33 @@ export default function HomePage() {
           </div>
 
           <div className="space-y-4">
-            {recentAnnouncements.map((item) => (
-              <article
-                key={item.id}
-                className="bg-white border border-slate-300 p-4 sm:p-5 hover:border-[#163964] transition-colors shadow-2xs"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2 text-xs text-slate-500 pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-1.5 font-medium text-slate-700">
-                    <Calendar className="h-3.5 w-3.5 text-[#163964]" />
-                    <span>{item.date}</span>
-                  </div>
-                  <Badge variant="outline" className="text-xs font-normal border-slate-300 text-slate-700 bg-slate-50">
-                    {item.category}
-                  </Badge>
-                </div>
-
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 font-serif mb-2 leading-snug hover:text-[#163964] transition-colors">
-                  <Link href={`/news#${item.id}`}>{item.title}</Link>
-                </h3>
-
-                <p className="text-xs sm:text-sm text-slate-600 line-clamp-3 leading-relaxed mb-3">
-                  {item.content}
-                </p>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
-                  <span>Department: <strong className="text-slate-700">{item.author}</strong></span>
-                  <Link
-                    href={`/news#${item.id}`}
-                    className="text-[#163964] font-medium hover:underline flex items-center gap-1"
-                  >
-                    Read full notice →
-                  </Link>
-                </div>
-              </article>
-            ))}
+            {isLoadingAnnouncements ? (
+              <p role="status" className="bg-white border border-slate-300 p-6 text-sm text-slate-600">
+                Loading announcements...
+              </p>
+            ) : announcementsError ? (
+              <p role="alert" className="bg-red-50 border border-red-300 p-6 text-sm text-red-800">
+                {announcementsError}
+              </p>
+            ) : recentAnnouncements.length === 0 ? (
+              <p className="bg-white border border-slate-300 p-6 text-sm text-slate-600">
+                No announcements have been added yet.
+              </p>
+            ) : (
+              recentAnnouncements.map((announcement, index) => (
+                <article
+                  key={`${announcement.ann_name}-${index}`}
+                  className="bg-white border border-slate-300 p-4 sm:p-5 hover:border-[#163964] transition-colors shadow-2xs"
+                >
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 font-serif mb-2 leading-snug hover:text-[#163964] transition-colors">
+                    <Link href="/news">{announcement.ann_name}</Link>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 line-clamp-3 leading-relaxed">
+                    {announcement.ann_desc}
+                  </p>
+                </article>
+              ))
+            )}
           </div>
 
           <div className="pt-2 text-center">
@@ -163,19 +261,26 @@ export default function HomePage() {
               <span>Faculties & Institutes</span>
             </div>
             <ul className="divide-y divide-slate-200 text-xs">
-              {initialDepartments.map((dept) => (
-                <li key={dept.id} className="p-3 hover:bg-slate-50 transition-colors">
-                  <Link href="/departments" className="block space-y-1">
-                    <div className="font-semibold text-slate-900 hover:text-[#163964]">
-                      {dept.name}
-                    </div>
-                    <div className="text-slate-500 flex items-center justify-between">
-                      <span className="font-mono text-[11px] text-[#163964] font-bold">[{dept.code}]</span>
-                      <span className="text-[11px] truncate max-w-[150px]">{dept.location}</span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
+              {isLoadingDepartments ? (
+                <li role="status" className="p-3 text-slate-500">Loading departments...</li>
+              ) : departmentsError ? (
+                <li role="alert" className="p-3 text-red-700">{departmentsError}</li>
+              ) : departments.length === 0 ? (
+                <li className="p-3 text-slate-500">No departments have been added yet.</li>
+              ) : (
+                departments.map((department) => (
+                  <li key={department.dep_name} className="p-3 hover:bg-slate-50 transition-colors">
+                    <Link href="/departments" className="block space-y-1">
+                      <div className="font-semibold text-slate-900 hover:text-[#163964]">
+                        {department.dep_name}
+                      </div>
+                      <div className="text-slate-500 line-clamp-2">
+                        {department.dep_desc}
+                      </div>
+                    </Link>
+                  </li>
+                ))
+              )}
             </ul>
             <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
               <Link
